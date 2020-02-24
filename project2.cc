@@ -33,6 +33,16 @@ void parse_id_list();
 Token peek();
 bool ifNotFind(vector<string> vec, const string& value);
 void syntax_error();
+bool isNonterminal(string var);
+bool isTerminal(string var);
+
+bool isNonterminal(string var){
+    return !ifNotFind(nonTerminals, var);
+}
+
+bool isTerminal(string var){
+    return !ifNotFind(terminals, var);
+}
 
 Token peek(){
     t = lexer.GetToken();
@@ -222,17 +232,25 @@ void isGenerate(vector<bool> useless){
 }*/
 
 void getFirst(){
-    vector<pair<string, vector<string>>> firstSet;
+    map<string, vector<string>> firstSet;
+    bool isChanged = true;
 
-    for (auto &item : ruleList){
-        string left = item.first;
-        vector<string> right = item.second;
+    do{
+        isChanged = false;
 
-        bool isChanged = true;
-        do{
-            
+        for (auto &item : ruleList){
+            string left = item.first;
+            vector<string> rightStatement = item.second;
+
+            for (size_t i = 0; i < rightStatement.size(); i++){
+                if (isTerminal(rightStatement[i])){
+                    firstSet[left].push_back(rightStatement[i]);
+                }
+            }
         }
-    }
+
+    } while(isChanged);
+
 }
 
 int main (int argc, char* argv[])
