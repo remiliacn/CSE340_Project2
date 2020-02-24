@@ -233,18 +233,36 @@ void isGenerate(vector<bool> useless){
 
 void getFirst(){
     map<string, vector<string>> firstSet;
+    map<string, bool> epsilonStatement;
     bool isChanged = true;
+
+    for (auto &item : ruleList){
+        if (item.second.empty()){
+            epsilonStatement[item.first] = true;
+        } else{
+            epsilonStatement[item.first] = false;
+        }
+    }
 
     do{
         isChanged = false;
+        bool isEpsilon = true;
 
         for (auto &item : ruleList){
             string left = item.first;
             vector<string> rightStatement = item.second;
-
-            for (size_t i = 0; i < rightStatement.size(); i++){
-                if (isTerminal(rightStatement[i])){
-                    firstSet[left].push_back(rightStatement[i]);
+            if (rightStatement.empty()){
+                firstSet[left].push_back("#");
+            } else{
+                for (size_t i = 0; i < rightStatement.size(); i++){
+                    if (isTerminal(rightStatement[i])){
+                        firstSet[left].push_back(rightStatement[i]);
+                    } else if (isNonterminal(rightStatement[i])){
+                        vector<string> itemFromNonTerminal = firstSet[rightStatement[i]];
+                        if (i + 1 == rightStatement.size()){
+                            firstSet[left].push_back("#");
+                        }
+                    }
                 }
             }
         }
