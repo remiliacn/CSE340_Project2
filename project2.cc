@@ -13,6 +13,7 @@
 
 using namespace std;
 vector<pair<string, vector<string>>> ruleList;
+map<string, vector<string>> firstSet;
 
 vector<string> rhs;
 vector<string> lhs;
@@ -232,35 +233,67 @@ void isGenerate(vector<bool> useless){
 }*/
 
 void getFirst(){
-    map<string, vector<string>> firstSet;
-    map<string, bool> epsilonStatement;
+    //map<string, bool> epsilonStatement;
     bool isChanged = true;
 
-    for (auto &item : ruleList){
+    /*for (auto &item : ruleList){
         if (item.second.empty()){
             epsilonStatement[item.first] = true;
         } else{
             epsilonStatement[item.first] = false;
         }
-    }
+    }*/
 
     do{
         isChanged = false;
-        bool isEpsilon = true;
+        //bool isEpsilon = true;
 
         for (auto &item : ruleList){
             string left = item.first;
             vector<string> rightStatement = item.second;
+            if (firstSet.count(left) == 0){
+                firstSet[left] = vector<string>();
+            }
             if (rightStatement.empty()){
-                firstSet[left].push_back("#");
+                if (ifNotFind(firstSet[left], "#")){
+                    firstSet[left].push_back("#");
+                    isChanged = true;
+                }
             } else{
                 for (size_t i = 0; i < rightStatement.size(); i++){
                     if (isTerminal(rightStatement[i])){
-                        firstSet[left].push_back(rightStatement[i]);
+                        if (ifNotFind(firstSet[left], rightStatement[i])){
+                            firstSet[left].push_back(rightStatement[i]);
+                            isChanged = true;
+                        }
+                        break;
+
                     } else if (isNonterminal(rightStatement[i])){
-                        vector<string> itemFromNonTerminal = firstSet[rightStatement[i]];
-                        if (i + 1 == rightStatement.size()){
-                            firstSet[left].push_back("#");
+                        bool hasEpsilon = false;
+                        if (!firstSet[rightStatement[i]].empty()){
+                            vector<string> set = firstSet[rightStatement[i]];
+                            for (auto& setItem : set){
+                                if (ifNotFind(firstSet[left], setItem)){
+                                    firstSet[left].push_back(setItem);
+                                }
+                                if (setItem == "#"){
+                                    hasEpsilon = true;
+                                }
+                            }
+
+                            if (!hasEpsilon){
+                                break;
+                            }
+
+                        } else{
+                            if ((i + 1) == rightStatement.size()){
+                                if (ifNotFind(firstSet[left], "#")){
+                                    firstSet[left].push_back("#");
+                                    isChanged = true;
+                                }
+                            } else{
+                                break;
+                            }
                         }
                     }
                 }
@@ -271,13 +304,28 @@ void getFirst(){
 
 }
 
+void printFirst(){
+    for (auto &item : firstSet){
+        cout << "FIRST(" << item.first << ") = { ";
+        vector<string> set = item.second;
+        for (size_t i = 0; i < set.size(); i++){
+            cout << set[i];
+            if (i + 1 != set.size()){
+                cout << ", ";
+            }
+        }
+
+        cout << " }" << endl;
+    }
+}
+
 int main (int argc, char* argv[])
 {
     int task;
     if (argc < 2)
     {
         cout << "Error: missing argument\n";
-        return 1;
+        //return 1;
     }
 
     /*
@@ -295,6 +343,12 @@ int main (int argc, char* argv[])
     switch (task) {
         case 1: printForTask1();
             break;
+
+        case 3:
+            getFirst();
+            printFirst();
+            break;
+
 
         default:
             cout << "Error: unrecognized task number " << task << "\n";
