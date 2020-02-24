@@ -13,7 +13,10 @@
 
 using namespace std;
 vector<pair<string, vector<string>>> ruleList;
+vector<string> addOrder;
+vector<string> terminalOrder;
 map<string, vector<string>> firstSet;
+map<string, vector<string>> followSet;
 
 vector<string> rhs;
 vector<string> lhs;
@@ -145,21 +148,26 @@ void parse_id_list() {
 void ReadGrammar()
 {
     parse_rule_list();
+    terminalOrder.emplace_back("#");
+    terminalOrder.emplace_back("$");
 
     for(auto &i : ruleList){
         if(ifNotFind(nonTerminals, i.first)){
             nonTerminals.push_back(i.first);
+            addOrder.push_back(i.first);
         }
 
         for(auto &item : i.second){
             if(ifNotFind(lhs, item)){
                 if(ifNotFind(terminals, item)){
                     terminals.push_back(item);
+                    terminalOrder.push_back(item);
                 }
 
             }else{
                 if(ifNotFind(nonTerminals, item)){
                     nonTerminals.push_back(item);
+                    addOrder.push_back(item);
                 }
             }
         }
@@ -233,17 +241,7 @@ void isGenerate(vector<bool> useless){
 }*/
 
 void getFirst(){
-    //map<string, bool> epsilonStatement;
-    bool isChanged = true;
-
-    /*for (auto &item : ruleList){
-        if (item.second.empty()){
-            epsilonStatement[item.first] = true;
-        } else{
-            epsilonStatement[item.first] = false;
-        }
-    }*/
-
+    bool isChanged;
     do{
         isChanged = false;
         //bool isEpsilon = true;
@@ -254,13 +252,17 @@ void getFirst(){
             if (firstSet.count(left) == 0){
                 firstSet[left] = vector<string>();
             }
+
             if (rightStatement.empty()){
                 if (ifNotFind(firstSet[left], "#")){
                     firstSet[left].push_back("#");
                     isChanged = true;
                 }
+
             } else{
+                bool hasEpsilon;
                 for (size_t i = 0; i < rightStatement.size(); i++){
+
                     if (isTerminal(rightStatement[i])){
                         if (ifNotFind(firstSet[left], rightStatement[i])){
                             firstSet[left].push_back(rightStatement[i]);
@@ -269,35 +271,36 @@ void getFirst(){
                         break;
 
                     } else if (isNonterminal(rightStatement[i])){
-                        bool hasEpsilon = false;
-                        if (!firstSet[rightStatement[i]].empty()){
+                        hasEpsilon = false;
+                        if (!firstSet[rightStatement[i]].empty()) {
                             vector<string> set = firstSet[rightStatement[i]];
-                            for (auto& setItem : set){
-                                if (ifNotFind(firstSet[left], setItem)){
+                            for (auto &setItem : set) {
+                                if (ifNotFind(firstSet[left], setItem) && setItem != "#") {
                                     firstSet[left].push_back(setItem);
+                                    isChanged = true;
                                 }
-                                if (setItem == "#"){
+                                if (setItem == "#") {
                                     hasEpsilon = true;
                                 }
                             }
 
-                            if (!hasEpsilon){
+                            if (!hasEpsilon) {
                                 break;
-                            }
 
-                        } else{
-                            if ((i + 1) == rightStatement.size()){
+                            } else if (i + 1 == rightStatement.size()){
                                 if (ifNotFind(firstSet[left], "#")){
                                     firstSet[left].push_back("#");
                                     isChanged = true;
                                 }
-                            } else{
-                                break;
                             }
+
+                        } else{
+                            break;
                         }
                     }
                 }
             }
+
         }
 
     } while(isChanged);
@@ -305,13 +308,105 @@ void getFirst(){
 }
 
 void printFirst(){
-    for (auto &item : firstSet){
-        cout << "FIRST(" << item.first << ") = { ";
-        vector<string> set = item.second;
-        for (size_t i = 0; i < set.size(); i++){
-            cout << set[i];
-            if (i + 1 != set.size()){
-                cout << ", ";
+    for (auto &item : addOrder){
+        cout << "FIRST(" << item << ") = { ";
+        vector<string> set = firstSet[item];
+        size_t i = 0;
+        for (size_t j = 0; j < terminalOrder.size(); j++){
+            if (!ifNotFind(set, terminalOrder[j])){
+                cout << terminalOrder[j];
+                if (i + 1 != set.size()){
+                    cout << ", ";
+                    i++;
+                } else{
+                    break;
+                }
+            }
+        }
+
+        cout << " }" << endl;
+    }
+}
+
+void getFollow(){
+    bool isChanged;
+
+    do{
+        isChanged = false;
+        for (auto &item : ruleList){
+            if (isTerminal(item.second[0])){
+                return;
+            }
+
+            string left = item.first;
+            if (followSet.count(left) == 0){
+                followSet[left] = vector<string>();
+            }
+            vector<string> statements = item.second;
+            if (!statements.empty()){
+                for(auto & stmt : statements){
+                    bool hasEpsilon = false;
+                    if (isNonterminal(stmt)){
+                        if (followSet.count(stmt) == 0){
+                            followSet[stmt] = vector<string>();
+                        }
+
+                        int idx = 0;
+                        vector<string> tempSet = firstSet[stmt];
+                        for (auto &element : tempSet){
+                            if (ifNotFind(followSet[left], element) && element != "#"){
+                                followSet[left].push_back(element);
+                                isChanged = true;
+                            }
+                            if (element == "#"){
+                                hasEpsilon = true;
+                            }
+                            idx++;
+                        }
+
+                        if (!hasEpsilon){
+                            break;
+                        } else{
+                            vector<string> tempSet2 = followSet[left];
+                            for (auto &element : tempSet2){
+                                if (ifNotFind(followSet[stmt], element)){
+                                    followSet[left].push_back(element);
+                                    isChanged = true;
+                                }
+                            }
+
+                            if (idx + 1 == tempSet.size()){
+                                followSet[left].push_back("$");
+
+                            }
+                        }
+
+                    } else{
+                        followSet[left].push_back(stmt);
+                        isChanged = true;
+                        break;
+                    }
+                }
+            }
+
+        }
+    } while (isChanged);
+}
+
+void printFollow(){
+    for (auto &item : addOrder){
+        cout << "FOLLOW(" << item << ") = { ";
+        vector<string> set = followSet[item];
+        size_t i = 0;
+        for (size_t j = 0; j < terminalOrder.size(); j++){
+            if (!ifNotFind(set, terminalOrder[j])){
+                cout << terminalOrder[j];
+                if (i + 1 != set.size()){
+                    cout << ", ";
+                    i++;
+                } else{
+                    break;
+                }
             }
         }
 
@@ -349,6 +444,10 @@ int main (int argc, char* argv[])
             printFirst();
             break;
 
+        case 4:
+            getFollow();
+            printFollow();
+            break;
 
         default:
             cout << "Error: unrecognized task number " << task << "\n";
