@@ -339,7 +339,7 @@ void getFollow() {
             int rightIdx = 0;
             for(size_t i = 0; i < item.second.size(); i++){
                 //If there is a production A → aB, then everything in FOLLOW(A) is in FOLLOW(B)
-                if (rightIdx + 1 < item.second.size()){
+                /*if (rightIdx + 1 < item.second.size()){
                     //get one after the terminal
                     if (isNonterminal(item.second[rightIdx + 1])){
                         for (auto &element : followSet[item.first]){
@@ -348,6 +348,10 @@ void getFollow() {
                             }
                         }
                     }
+                }*/
+
+                if (isTerminal(item.second[i])){
+                    continue;
                 }
 
                 string left = item.first;
@@ -373,13 +377,15 @@ void getFollow() {
                                     break;
                                 }
 
-
                                 vector<string> tempFollow2 = followSet[left];
                                 for (auto &temp : tempFollow2){
                                     if (ifNotFind(tempFollow, temp)){
                                         tempFollow.push_back(temp);
                                     }
                                 }
+
+                            } else{
+                                break;
                             }
                         //if is terminal
                         } else{
@@ -393,9 +399,9 @@ void getFollow() {
 
                 //only have one stuff.
                 } else{
-                    for (auto &element : restRight){
-                        if (ifNotFind(followSet[left], element) && element != "#"){
-                            followSet[left].push_back(element);
+                    for (auto &element : followSet[left]){
+                        if (ifNotFind(tempFollow, element) && element != "#"){
+                            tempFollow.push_back(element);
                         }
                     }
                 }
@@ -408,11 +414,12 @@ void getFollow() {
                     }
 
                     isChanged = true;
-                }
 
-                tempFollow.clear();
+                }
+                //tempFollow.clear();
                 rightIdx++;
             }
+
         }
     } while (isChanged);
 
