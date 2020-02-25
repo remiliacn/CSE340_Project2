@@ -336,20 +336,7 @@ void getFollow() {
     do {
         isChanged = false;
         for (auto &item : ruleList) {
-            int rightIdx = 0;
             for(size_t i = 0; i < item.second.size(); i++){
-                //If there is a production A → aB, then everything in FOLLOW(A) is in FOLLOW(B)
-                /*if (rightIdx + 1 < item.second.size()){
-                    //get one after the terminal
-                    if (isNonterminal(item.second[rightIdx + 1])){
-                        for (auto &element : followSet[item.first]){
-                            if (ifNotFind(followSet[item.second[rightIdx + 1]], element)){
-                                followSet[item.second[rightIdx + 1]].push_back(element);
-                            }
-                        }
-                    }
-                }*/
-
                 if (isTerminal(item.second[i])){
                     continue;
                 }
@@ -361,10 +348,9 @@ void getFollow() {
                 bool hasEpsilon = false;
 
                 if (!restRight.empty()){
-                    for (size_t i = 0; i < restRight.size(); i++){
-
-                        if (isNonterminal(restRight[i])){
-                            for (auto &innerElement : firstSet[restRight[i]]){
+                    for (size_t idx = 0; idx < restRight.size(); idx++){
+                        if (isNonterminal(restRight[idx])){
+                            for (auto &innerElement : firstSet[restRight[idx]]){
                                 if (ifNotFind(tempFollow, innerElement) && innerElement != "#"){
                                    tempFollow.push_back(innerElement);
                                 } else if (innerElement == "#"){
@@ -373,8 +359,8 @@ void getFollow() {
                             }
 
                             if (hasEpsilon){
-                                if (i + 1 == restRight.size()){
-                                    break;
+                                if (idx + 1 != restRight.size()){
+                                    continue;
                                 }
 
                                 vector<string> tempFollow2 = followSet[left];
@@ -387,20 +373,22 @@ void getFollow() {
                             } else{
                                 break;
                             }
+
                         //if is terminal
+                        //if (isNonterminal(restRight[idx]))
                         } else{
-                            if (ifNotFind(tempFollow, restRight[i])){
-                                tempFollow.push_back(restRight[i]);
+                            if (ifNotFind(tempFollow, restRight[idx])){
+                                tempFollow.push_back(restRight[idx]);
                             }
                             break;
-                            //isChanged = true;
                         }
                     }
 
                 //only have one stuff.
+                //if (!restRight.empty())
                 } else{
                     for (auto &element : followSet[left]){
-                        if (ifNotFind(tempFollow, element) && element != "#"){
+                        if (ifNotFind(tempFollow, element)){
                             tempFollow.push_back(element);
                         }
                     }
@@ -414,20 +402,11 @@ void getFollow() {
                     }
 
                     isChanged = true;
-
                 }
-                //tempFollow.clear();
-                rightIdx++;
             }
-
         }
+
     } while (isChanged);
-
-    /*for (auto &item : followSet){
-        if (item.second.empty()){
-            item.second.emplace_back("$");
-        }
-    }*/
 }
 
 void printFollow(){
