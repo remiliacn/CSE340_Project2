@@ -17,12 +17,13 @@ vector<string> addOrder;
 vector<string> terminalOrder;
 map<string, vector<string>> firstSet;
 map<string, vector<string>> followSet;
-
+bool hasUseless;
 vector<string> rhs;
 vector<string> lhs;
 vector<string> terminals;
 vector<string> nonTerminals;
-string symbols[1000];
+map <string, int> symbols;
+bool generateSymbols[100];
 int symbolSize = 0;
 LexicalAnalyzer lexer;
 Token t;
@@ -173,16 +174,19 @@ void ReadGrammar()
         }
     }
 
-    symbols[0] = "#";
-    symbols[1] = "$";
+    symbols["#"] = 0;
+    generateSymbols[0] = true;
+    symbols["$"] = 1;
     symbolSize += 2;
     
     for(const auto & terminal : terminals){
-        symbols[symbolSize++] = terminal;
+        symbols[terminal] = symbolSize;
+        generateSymbols[symbolSize++] = true;
     }
 
     for(auto &i : nonTerminals) {
-        symbols[symbolSize++] = i;
+        symbols[i] = symbolSize;
+        generateSymbols[symbolSize++] = false;
     }
 }
 
@@ -214,7 +218,7 @@ void isGenerate(bool *useless){
             vector<string> rightRules = item.second;
             for (auto &rightRule : rightRules) {
                 //check is there any element not true in usefulSymbol
-                int index = distance(symbols, find(symbols, symbols + symbolSize, rightRule));
+                int index = symbols[rightRule];
                 isGenerating = useless[index];
                 if (!isGenerating) {
                    break;
@@ -223,7 +227,7 @@ void isGenerate(bool *useless){
 
             //check if all generating or empty (empty means there is only one epsilon) and sign to true in usefulSymbol
             if (item.second.empty() || isGenerating) {
-                int index = distance(symbols, find(symbols, symbols + symbolSize, left));
+                int index = symbols[left];
                 if(!useless[index]){
                     useless[index] = true;
                     isChanged = true;
@@ -243,10 +247,10 @@ void isReachable(bool *reachable, vector<pair<string, vector<string>>> ruleGenRu
             string left = item.first;
             vector<string> rightRules = item.second;
 
-            int index = distance(symbols, find(symbols, symbols + symbolSize, left));
+            int index = symbols[left];
             if (reachable[index]) {
                 for (auto &rightRule : rightRules) {
-                    int tempIdx = distance(symbols, find(symbols, symbols + symbolSize, rightRule));
+                    int tempIdx = symbols[rightRule];
                     if(!reachable[tempIdx]){
                         reachable[tempIdx] = true;
                         isChanged = true;
@@ -261,22 +265,15 @@ void isReachable(bool *reachable, vector<pair<string, vector<string>>> ruleGenRu
 vector<pair<string, vector<string>>> ruleGen;
 vector<pair<string, vector<string>>> useful;
 void getUseless(){
-    bool generateSymbols[symbolSize];
+
     bool reachableSymbols[symbolSize];
-    for (int i = 1; i < symbolSize; i++) {
-        generateSymbols[i] = isTerminal(symbols[i]);
-    }
-
-    generateSymbols[0] = true;
-
-    //get generate array
     isGenerate(generateSymbols);
     for(auto &item : ruleList){
         string left = item.first;
         vector<string> rightRules = item.second;
 
         for(auto &rightRule : rightRules){
-            int idx = distance(symbols, find(symbols, symbols + symbolSize, rightRule));
+            int idx = symbols[rightRule];
             if(generateSymbols[idx]){
                 isGenerating = true;
             }else{
@@ -288,11 +285,13 @@ void getUseless(){
 
         if(isGenerating){
             ruleGen.emplace_back(item.first, item.second);
+        } else{
+
         }
     }
 
     if(!ruleGen.empty()){
-        int index = distance(symbols, find(symbols, symbols + symbolSize, ruleList[0].first));
+        int index = symbols[ruleList[0].first];
         for(int i = 0; i < symbolSize; i++){
             bool reachable = (i == index);
             reachableSymbols[i] = reachable;
@@ -302,7 +301,7 @@ void getUseless(){
         isReachable(reachableSymbols, ruleGen);
         for(auto &i : ruleGen){
             for(auto &j : i.second){
-                int idx = distance(symbols, find(symbols, symbols + symbolSize, j));
+                int idx = symbols[j];
                 rea = reachableSymbols[idx];
                 if(!rea){
                     break;
@@ -515,9 +514,9 @@ void printFollow(){
         vector<string> set = followSet[item];
         size_t i = 0;
 
-        for (size_t j = 0; j < terminalOrder.size(); j++){
-            if (!ifNotFind(set, terminalOrder[j])){
-                cout << terminalOrder[j];
+        for (const auto & j : terminalOrder){
+            if (!ifNotFind(set, j)){
+                cout << j;
                 if (i + 1 != set.size()){
                     cout << ", ";
                     i++;
@@ -529,6 +528,102 @@ void printFollow(){
 
         cout << " }" << endl;
     }
+}
+
+vector<string> rhsFirst(vector<string> ruleBody) {
+    vector<string> result;
+    if (ruleBody.empty()) {
+        result.emplace_back("#");
+
+    }else{
+        bool hasEpsilon = true;
+        for(auto &item : ruleBody){
+            if(ifNotFind(firstSet[item], "#")){
+                hasEpsilon = false;
+            }
+
+            for(auto &rule : firstSet[item]){
+                if(ifNotFind(result, rule) && rule != "#"){
+                    result.push_back(rule);
+                }
+            }
+            if(!hasEpsilon){
+                break;
+            }
+
+        }
+
+        if(hasEpsilon){
+            result.emplace_back("#");
+        }
+    }
+    return result;
+}
+
+bool checkIntersec(vector<string> vec1, vector<string> vec2){
+    for(auto &item : vec1){
+        if(!ifNotFind(vec2, item)){
+            return true;
+        }
+    }
+    return false;
+}
+// Task 5
+void checkPP()
+{
+    string output;
+    //update global hasUseless value by calling getUseless
+    getUseless();
+    if(!hasUseless){
+        output = "NO";
+    }else{
+        getFirst();
+        firstSet["#"].push_back("#");
+        bool notIntersec = true;
+        for(auto &item : terminals){
+            firstSet[item].push_back(item);
+        }
+
+        for(int i = 0; i < ruleList.size(); i++){
+            pair<string, vector<string>> temp1 = ruleList[i];
+            for(int j = i + 1; j < ruleList.size(); j++){
+                pair<string, vector<string>> temp2 = ruleList[j];
+                if(ruleList[i].first == ruleList[j].first){
+                    vector<string> first1 = rhsFirst(ruleList[i].second);
+                    vector<string> first2 = rhsFirst(ruleList[j].second);
+                    //check intersection
+                    notIntersec = checkIntersec(first1, first2);
+                    if(notIntersec){
+                        goto OUTLOOP;
+                    }
+                }
+            }
+        }
+
+OUTLOOP:
+        bool notIntersec2 = false;
+        if(notIntersec){
+            output = "NO";
+
+        }else{
+            getFollow();
+            for(auto &i : nonTerminals){
+                if(!ifNotFind(firstSet[i], "#")){
+                    notIntersec2 = checkIntersec(firstSet[i], followSet[i]);
+                }
+                if(notIntersec2){
+                    break;
+                }
+            }
+
+            if(notIntersec2){
+                output = "NO";
+            }else{
+                output = "YES";
+            }
+        }
+    }
+    cout << output;
 }
 
 int main (int argc, char* argv[])
@@ -569,6 +664,10 @@ int main (int argc, char* argv[])
             getFirst();
             getFollow();
             printFollow();
+            break;
+
+        case 5:
+            checkPP();
             break;
 
         default:
