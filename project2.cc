@@ -202,43 +202,156 @@ void printForTask1()
     cout << output << endl;
 }
 
-/*
 
-bool gen = false;
-void isGenerate(vector<bool> useless){
-    //save current one
-    vector<bool> prev;
-    for(int i = 0; i < symbolSize; i++){
-        prev[i] = useless[i];
+bool isGenerating = false;
+bool containUseless = false;
+
+void isGenerate(bool *useless){
+    bool isChanged;
+    do {
+        isChanged = false;
+        for (auto &item : ruleList) {
+            string left = item.first;
+            vector<string> rightRules = item.second;
+            for (auto &rightRule : rightRules) {
+                //check is there any element not true in usefulSymbol
+                int index = distance(symbols, find(symbols, symbols + symbolSize, rightRule));
+                isGenerating = useless[index];
+                if (useless[index]) {
+                    isGenerating = true;
+                } else {
+                    isGenerating = false;
+                    break;
+                }
+            }
+
+            //check if all generating or empty (empty means there is only one epsilon) and sign to true in usefulSymbol
+            if (item.second.empty() || isGenerating) {
+                int index = distance(symbols, find(symbols, symbols + symbolSize, left));
+                if(!useless[index]){
+                    useless[index] = true;
+                    isChanged = true;
+                }
+            }
+        }
+    }while(isChanged);
+
+}
+
+bool rea = true;
+void isReachable(bool *reachable, vector<pair<string, vector<string>>> ruleGenRules) {
+    bool isChanged;
+    do{
+        isChanged = false;
+        for (auto &item : ruleGenRules) {
+            string left = item.first;
+            vector<string> rightRules = item.second;
+
+            int index = distance(symbols, find(symbols, symbols + symbolSize, left));
+            if (reachable[index]) {
+                for (auto &rightRule : rightRules) {
+                    int tempIdx = distance(symbols, find(symbols, symbols + symbolSize, rightRule));
+                    if(!reachable[tempIdx]){
+                        reachable[tempIdx] = true;
+                        isChanged = true;
+                    }
+                }
+            }
+        }
+
+    }while(isChanged);
+}
+
+vector<pair<string, vector<string>>> ruleGen;
+vector<pair<string, vector<string>>> useful;
+void getUseless(){
+    bool generateSymbols[symbolSize];
+    bool reachableSymbols[symbolSize];
+    for (int i = 0; i < symbolSize; i++) {
+        generateSymbols[i] = isTerminal(symbols[i]);
     }
 
-    //setGenerate(useless);
+    generateSymbols[0] = true;
 
-    for(auto &i : ruleList){
-        //go through rule body vector
-        for(auto &j : i.second){
-            //check is there any element not true in usefulSymbol
-            int rightsIdx = distance(symbols, find(symbols, symbols + symbolSize, j));
-            if(useless[rightsIdx]){
-                gen = true;
+    //get generate array
+    isGenerate(generateSymbols);
+    for(auto &item : ruleList){
+        string left = item.first;
+        vector<string> rightRules = item.second;
+
+        for(auto &rightRule : rightRules){
+            int idx = distance(symbols, find(symbols, symbols + symbolSize, rightRule));
+            if(generateSymbols[idx]){
+                isGenerating = true;
             }else{
                 //one ungenerating element means whole rule ungenerating
-                gen = false;
+                isGenerating = false;
                 break;
             }
         }
 
-        //check if all generating or empty (empty means there is only one epsilon) and sign to true in usefulSymbol
-        if(i.second.empty()|| gen){
-            int rightsIdx = distance(symbols, find(symbols, symbols + symbolSize, i.first));
-            useless[rightsIdx] = true;
+        if(isGenerating){
+            ruleGen.emplace_back(item.first, item.second);
+        }else{
+            //if the rule is not generating it will make the rule list unpridictive
+            containUseless = false;
         }
     }
 
-    if(prev != useless){
-        isGenerate(useless);
+    if(!ruleGen.empty()){
+        int index = distance(symbols, find(symbols, symbols + symbolSize, ruleList[0].first));
+        for(int i = 0; i < symbolSize; i++){
+            reachableSymbols[i] = i == index;
+        }
+
+        //get reachable array
+        isReachable(reachableSymbols, ruleGen);
+        for(auto &i : ruleGen){
+            for(auto &j : i.second){
+                int idx = distance(symbols, find(symbols, symbols + symbolSize, j));
+                if(reachableSymbols[idx]){
+                    rea = true;
+                }else{
+                    //one ungenerating element means whole rule ungenerating
+                    rea = false;
+                    break;
+                }
+            }
+
+            if(rea){
+                //all reachable rules from ruleGen is useful
+                useful.emplace_back(i.first, i.second);
+            }else{
+                //if the rule is unreachable it will make the rule list unpridictive
+                containUseless = false;
+            }
+        }
     }
-}*/
+}
+
+// Task 2
+void RemoveUselessSymbols() {
+    //update useful
+    getUseless();
+    if(!useful.empty()){
+        string output;
+        for(auto &item : useful){
+            output += item.first + " -> ";
+            if(!item.second.empty()){
+                for(auto &rightRule : item.second){
+                    output += rightRule + " ";
+                }
+            }else{
+                output += "#";
+            }
+            output += "\n";
+        }
+        cout << output;
+
+    }else{
+        cout << "";
+    }
+}
 
 void getFirst(){
     bool isChanged;
@@ -396,12 +509,11 @@ void getFollow() {
 
                 if (sizeChange != tempFollow.size()){
                     for (auto &element : tempFollow){
-                        if (ifNotFind(followSet[item.second[i]], element) && element != "#"){
+                        if (ifNotFind(followSet[item.second[i]], element)){
                             followSet[item.second[i]].push_back(element);
+                            isChanged = true;
                         }
                     }
-
-                    isChanged = true;
                 }
             }
         }
@@ -454,6 +566,10 @@ int main (int argc, char* argv[])
 
     switch (task) {
         case 1: printForTask1();
+            break;
+
+        case 2:
+            RemoveUselessSymbols();
             break;
 
         case 3:
