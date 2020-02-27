@@ -17,7 +17,7 @@ vector<string> addOrder;
 vector<string> terminalOrder;
 map<string, vector<string>> firstSet;
 map<string, vector<string>> followSet;
-bool hasUseless;
+bool hasUseless = true;
 vector<string> rhs;
 vector<string> lhs;
 vector<string> terminals;
@@ -274,17 +274,15 @@ void getUseless(){
 
         for(auto &rightRule : rightRules){
             int idx = symbols[rightRule];
-            if(generateSymbols[idx]){
-                isGenerating = true;
-            }else{
-                //one ungenerating element means whole rule ungenerating
-                isGenerating = false;
+            isGenerating = generateSymbols[idx];
+            if (!isGenerating)
                 break;
-            }
         }
 
         if(isGenerating){
             ruleGen.emplace_back(item.first, item.second);
+        } else{
+            hasUseless = false;
         }
     }
 
@@ -410,9 +408,9 @@ void printFirst(){
         cout << "FIRST(" << item << ") = { ";
         vector<string> set = firstSet[item];
         size_t i = 0;
-        for (size_t j = 0; j < terminalOrder.size(); j++){
-            if (!ifNotFind(set, terminalOrder[j])){
-                cout << terminalOrder[j];
+        for (const auto & j : terminalOrder){
+            if (!ifNotFind(set, j)){
+                cout << j;
                 if (i + 1 != set.size()){
                     cout << ", ";
                     i++;
@@ -441,62 +439,65 @@ void getFollow() {
 
                 string left = item.first;
                 vector<string> restRight = vector<string>(item.second.begin() + i + 1, item.second.end());
+                vector<string> tempFollow = followSet[item.second[i]];
+                size_t sizeChange = tempFollow.size();
                 bool hasEpsilon = false;
 
                 if (!restRight.empty()){
                     for (size_t idx = 0; idx < restRight.size(); idx++){
                         if (isNonterminal(restRight[idx])){
                             for (auto &innerElement : firstSet[restRight[idx]]){
-                                if (innerElement != "#"){
-                                    if (ifNotFind(followSet[item.second[i]], innerElement)){
-                                        followSet[item.second[i]].push_back(innerElement);
-                                        isChanged = true;
-                                    }
-
+                                if (ifNotFind(tempFollow, innerElement) && innerElement != "#"){
+                                    tempFollow.push_back(innerElement);
                                 } else if (innerElement == "#"){
                                     hasEpsilon = true;
                                 }
                             }
 
-                            if (!hasEpsilon) {
+                            if (hasEpsilon){
+                                if (idx + 1 != restRight.size()){
+                                    continue;
+                                }
+
+                                vector<string> tempFollow2 = followSet[left];
+                                for (auto &temp : tempFollow2){
+                                    if (ifNotFind(tempFollow, temp)){
+                                        tempFollow.push_back(temp);
+                                    }
+                                }
+
+                            } else{
                                 break;
                             }
 
-                        //if is terminal
-                        //if (isNonterminal(restRight[idx]))
+                            //if is terminal
+                            //if (isNonterminal(restRight[idx]))
                         } else{
-                            if (ifNotFind(followSet[item.second[i]], restRight[idx])){
-                                followSet[item.second[i]].push_back(restRight[idx]);
-                                isChanged = true;
+                            if (ifNotFind(tempFollow, restRight[idx])){
+                                tempFollow.push_back(restRight[idx]);
                             }
                             break;
                         }
                     }
 
-                //only have one stuff.
-                //if (!restRight.empty())
+                    //only have one stuff.
+                    //if (!restRight.empty())
                 } else{
                     for (auto &element : followSet[left]){
-                        if (ifNotFind(followSet[item.second[i]], element)){
-                            followSet[item.second[i]].push_back(element);
-                            isChanged = true;
+                        if (ifNotFind(tempFollow, element)){
+                            tempFollow.push_back(element);
                         }
                     }
                 }
 
-                if (hasEpsilon){
-                    if (!ifNotFind(nonTerminals, item.second[0])){
-                        for (auto &item2 : followSet[left]){
-                            if (ifNotFind(followSet[item.second[0]], item2)){
-                                followSet[item.second[0]].push_back(item2);
-                                isChanged = true;
-                            }
+                if (sizeChange != tempFollow.size()){
+                    for (auto &element : tempFollow){
+                        if (ifNotFind(followSet[item.second[i]], element) && element != "#"){
+                            followSet[item.second[i]].push_back(element);
                         }
-
-                    } else{
-                        string tempTerminal;
-
                     }
+
+                    isChanged = true;
                 }
             }
         }
@@ -526,29 +527,26 @@ void printFollow(){
     }
 }
 
-vector<string> rhsFirst(vector<string> ruleBody) {
+vector<string> rhsFirst(const vector<string>& ruleBody) {
     vector<string> result;
+    bool hasEpsilon = true;
     if (ruleBody.empty()) {
         result.emplace_back("#");
-
     }else{
-        bool hasEpsilon = true;
         for(auto &item : ruleBody){
-            if(ifNotFind(firstSet[item], "#")){
-                hasEpsilon = false;
-            }
+            hasEpsilon = !ifNotFind(firstSet[item], "#");
 
-            for(auto &rule : firstSet[item]){
-                if(ifNotFind(result, rule) && rule != "#"){
-                    result.push_back(rule);
+            for(auto &firstSetItem : firstSet[item]){
+                if(ifNotFind(result, firstSetItem) && firstSetItem != "#"){
+                    result.push_back(firstSetItem);
                 }
             }
+
             if(!hasEpsilon){
                 break;
             }
-
         }
-
+        
         if(hasEpsilon){
             result.emplace_back("#");
         }
@@ -556,7 +554,7 @@ vector<string> rhsFirst(vector<string> ruleBody) {
     return result;
 }
 
-bool checkIntersec(vector<string> vec1, vector<string> vec2){
+bool checkIfIntersec(const vector<string>& vec1, const vector<string>& vec2){
     for(auto &item : vec1){
         if(!ifNotFind(vec2, item)){
             return true;
@@ -568,59 +566,53 @@ bool checkIntersec(vector<string> vec1, vector<string> vec2){
 void checkPP()
 {
     string output;
-    //update global hasUseless value by calling getUseless
     getUseless();
+    firstSet["#"].push_back("#");
     if(!hasUseless){
         output = "NO";
+
     }else{
         getFirst();
-        firstSet["#"].push_back("#");
-        bool notIntersec = true;
+        bool ifIntersec = true;
+
         for(auto &item : terminals){
             firstSet[item].push_back(item);
         }
 
-        for(int i = 0; i < ruleList.size(); i++){
-            pair<string, vector<string>> temp1 = ruleList[i];
-            for(int j = i + 1; j < ruleList.size(); j++){
-                pair<string, vector<string>> temp2 = ruleList[j];
-                if(ruleList[i].first == ruleList[j].first){
-                    vector<string> first1 = rhsFirst(ruleList[i].second);
-                    vector<string> first2 = rhsFirst(ruleList[j].second);
-                    //check intersection
-                    notIntersec = checkIntersec(first1, first2);
-                    if(notIntersec){
-                        goto OUTLOOP;
+        for(int idx = 0; idx < ruleList.size(); idx++){
+            for(int idx2 = idx + 1; idx2 < ruleList.size(); idx2++){
+                if(ruleList[idx].first == ruleList[idx2].first){
+                    vector<string> first1 = rhsFirst(ruleList[idx].second);
+                    vector<string> first2 = rhsFirst(ruleList[idx2].second);
+
+                    ifIntersec = checkIfIntersec(first1, first2);
+                    if(ifIntersec){
+                        goto outLoop;
                     }
                 }
             }
         }
 
-OUTLOOP:
-        bool notIntersec2 = false;
-        if(notIntersec){
-            output = "NO";
+outLoop:
 
+        bool ifIntersec2 = false;
+        if(ifIntersec){
+            output = "NO";
         }else{
             getFollow();
-            for(auto &i : nonTerminals){
-                if(!ifNotFind(firstSet[i], "#")){
-                    notIntersec2 = checkIntersec(firstSet[i], followSet[i]);
-                }
-                if(notIntersec2){
+            for(auto &item : nonTerminals){
+                if(!(ifNotFind(firstSet[item], "#"))){
+                    ifIntersec2 = checkIfIntersec(firstSet[item], followSet[item]);
                     break;
                 }
             }
 
-            if(notIntersec2){
-                output = "NO";
-            }else{
-                output = "YES";
-            }
+            output = ifIntersec2 ? "NO" : "YES";
         }
     }
     cout << output;
 }
+
 
 int main (int argc, char* argv[])
 {
