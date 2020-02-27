@@ -204,7 +204,6 @@ void printForTask1()
 
 
 bool isGenerating = false;
-bool containUseless = false;
 
 void isGenerate(bool *useless){
     bool isChanged;
@@ -217,11 +216,8 @@ void isGenerate(bool *useless){
                 //check is there any element not true in usefulSymbol
                 int index = distance(symbols, find(symbols, symbols + symbolSize, rightRule));
                 isGenerating = useless[index];
-                if (useless[index]) {
-                    isGenerating = true;
-                } else {
-                    isGenerating = false;
-                    break;
+                if (!isGenerating) {
+                   break;
                 }
             }
 
@@ -267,7 +263,7 @@ vector<pair<string, vector<string>>> useful;
 void getUseless(){
     bool generateSymbols[symbolSize];
     bool reachableSymbols[symbolSize];
-    for (int i = 0; i < symbolSize; i++) {
+    for (int i = 1; i < symbolSize; i++) {
         generateSymbols[i] = isTerminal(symbols[i]);
     }
 
@@ -292,16 +288,14 @@ void getUseless(){
 
         if(isGenerating){
             ruleGen.emplace_back(item.first, item.second);
-        }else{
-            //if the rule is not generating it will make the rule list unpridictive
-            containUseless = false;
         }
     }
 
     if(!ruleGen.empty()){
         int index = distance(symbols, find(symbols, symbols + symbolSize, ruleList[0].first));
         for(int i = 0; i < symbolSize; i++){
-            reachableSymbols[i] = i == index;
+            bool reachable = (i == index);
+            reachableSymbols[i] = reachable;
         }
 
         //get reachable array
@@ -309,11 +303,8 @@ void getUseless(){
         for(auto &i : ruleGen){
             for(auto &j : i.second){
                 int idx = distance(symbols, find(symbols, symbols + symbolSize, j));
-                if(reachableSymbols[idx]){
-                    rea = true;
-                }else{
-                    //one ungenerating element means whole rule ungenerating
-                    rea = false;
+                rea = reachableSymbols[idx];
+                if(!rea){
                     break;
                 }
             }
@@ -321,9 +312,6 @@ void getUseless(){
             if(rea){
                 //all reachable rules from ruleGen is useful
                 useful.emplace_back(i.first, i.second);
-            }else{
-                //if the rule is unreachable it will make the rule list unpridictive
-                containUseless = false;
             }
         }
     }
