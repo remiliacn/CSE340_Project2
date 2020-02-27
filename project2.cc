@@ -178,7 +178,7 @@ void ReadGrammar()
     generateSymbols[0] = true;
     symbols["$"] = 1;
     symbolSize += 2;
-    
+
     for(const auto & terminal : terminals){
         symbols[terminal] = symbolSize;
         generateSymbols[symbolSize++] = true;
@@ -285,8 +285,6 @@ void getUseless(){
 
         if(isGenerating){
             ruleGen.emplace_back(item.first, item.second);
-        } else{
-
         }
     }
 
@@ -443,42 +441,33 @@ void getFollow() {
 
                 string left = item.first;
                 vector<string> restRight = vector<string>(item.second.begin() + i + 1, item.second.end());
-                vector<string> tempFollow = followSet[item.second[i]];
-                size_t sizeChange = tempFollow.size();
                 bool hasEpsilon = false;
 
                 if (!restRight.empty()){
                     for (size_t idx = 0; idx < restRight.size(); idx++){
                         if (isNonterminal(restRight[idx])){
                             for (auto &innerElement : firstSet[restRight[idx]]){
-                                if (ifNotFind(tempFollow, innerElement) && innerElement != "#"){
-                                   tempFollow.push_back(innerElement);
+                                if (innerElement != "#"){
+                                    if (ifNotFind(followSet[item.second[i]], innerElement)){
+                                        followSet[item.second[i]].push_back(innerElement);
+                                        isChanged = true;
+                                    }
+
                                 } else if (innerElement == "#"){
                                     hasEpsilon = true;
                                 }
                             }
 
-                            if (hasEpsilon){
-                                if (idx + 1 != restRight.size()){
-                                    continue;
-                                }
-
-                                vector<string> tempFollow2 = followSet[left];
-                                for (auto &temp : tempFollow2){
-                                    if (ifNotFind(tempFollow, temp)){
-                                        tempFollow.push_back(temp);
-                                    }
-                                }
-
-                            } else{
+                            if (!hasEpsilon) {
                                 break;
                             }
 
                         //if is terminal
                         //if (isNonterminal(restRight[idx]))
                         } else{
-                            if (ifNotFind(tempFollow, restRight[idx])){
-                                tempFollow.push_back(restRight[idx]);
+                            if (ifNotFind(followSet[item.second[i]], restRight[idx])){
+                                followSet[item.second[i]].push_back(restRight[idx]);
+                                isChanged = true;
                             }
                             break;
                         }
@@ -488,18 +477,25 @@ void getFollow() {
                 //if (!restRight.empty())
                 } else{
                     for (auto &element : followSet[left]){
-                        if (ifNotFind(tempFollow, element)){
-                            tempFollow.push_back(element);
-                        }
-                    }
-                }
-
-                if (sizeChange != tempFollow.size()){
-                    for (auto &element : tempFollow){
                         if (ifNotFind(followSet[item.second[i]], element)){
                             followSet[item.second[i]].push_back(element);
                             isChanged = true;
                         }
+                    }
+                }
+
+                if (hasEpsilon){
+                    if (!ifNotFind(nonTerminals, item.second[0])){
+                        for (auto &item2 : followSet[left]){
+                            if (ifNotFind(followSet[item.second[0]], item2)){
+                                followSet[item.second[0]].push_back(item2);
+                                isChanged = true;
+                            }
+                        }
+
+                    } else{
+                        string tempTerminal;
+
                     }
                 }
             }
