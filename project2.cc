@@ -217,15 +217,13 @@ void isGenerate(bool *useless){
             string left = item.first;
             vector<string> rightRules = item.second;
             for (auto &rightRule : rightRules) {
-                //check is there any element not true in usefulSymbol
                 int index = symbols[rightRule];
                 isGenerating = useless[index];
                 if (!isGenerating) {
-                   break;
+                    break;
                 }
             }
 
-            //check if all generating or empty (empty means there is only one epsilon) and sign to true in usefulSymbol
             if (item.second.empty() || isGenerating) {
                 int index = symbols[left];
                 if(!useless[index]){
@@ -234,8 +232,8 @@ void isGenerate(bool *useless){
                 }
             }
         }
-    }while(isChanged);
 
+    }while(isChanged);
 }
 
 bool rea = true;
@@ -271,12 +269,16 @@ void getUseless(){
     for(auto &item : ruleList){
         string left = item.first;
         vector<string> rightRules = item.second;
+        if (!rightRules.empty()){
+            for(auto &rightRule : rightRules){
+                int idx = symbols[rightRule];
+                isGenerating = generateSymbols[idx];
+                if (!isGenerating)
+                    break;
+            }
 
-        for(auto &rightRule : rightRules){
-            int idx = symbols[rightRule];
-            isGenerating = generateSymbols[idx];
-            if (!isGenerating)
-                break;
+        } else{
+            isGenerating = true;
         }
 
         if(isGenerating){
@@ -297,7 +299,7 @@ void getUseless(){
         isReachable(reachableSymbols, ruleGen);
         for(auto &i : ruleGen){
             for(auto &j : i.second){
-                int idx = symbols[j];
+                int idx = symbols[i.first];
                 rea = reachableSymbols[idx];
                 if(!rea){
                     break;
@@ -305,8 +307,9 @@ void getUseless(){
             }
 
             if(rea){
-                //all reachable rules from ruleGen is useful
                 useful.emplace_back(i.first, i.second);
+            } else{
+                hasUseless = false;
             }
         }
     }
@@ -425,79 +428,68 @@ void printFirst(){
 }
 
 void getFollow() {
-    bool isChanged;
+    bool isChanged, hasEpsilon;
     string firstSymbol = nonTerminals[0];
     followSet[firstSymbol].push_back("$");
 
+    for (auto &item : ruleList){
+        string left = item.first;
+        vector<string> rights = item.second;
+        for (size_t idx = 0; idx < rights.size(); idx++){
+            if (isNonterminal(rights[idx])){
+                for (size_t idx2 = idx + 1; idx2 < rights.size(); idx2++){
+                    hasEpsilon = false;
+                    if (!ifNotFind(firstSet[rights[idx2]], "#")){
+                        hasEpsilon = true;
+                    }
+
+                    for (auto & element : firstSet[rights[idx2]]){
+                        if(ifNotFind(followSet[rights[idx]], element) && element != "#"){
+                            followSet[rights[idx]].push_back(element);
+                        }
+                    }
+
+                    if (!hasEpsilon){
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     do {
         isChanged = false;
-        for (auto &item : ruleList) {
-            for(size_t i = 0; i < item.second.size(); i++){
-                if (isTerminal(item.second[i])){
-                    continue;
-                }
+        for (auto &item : ruleList){
+            string left = item.first;
+            vector<string> rights = item.second;
 
-                string left = item.first;
-                vector<string> restRight = vector<string>(item.second.begin() + i + 1, item.second.end());
-                vector<string> tempFollow = followSet[item.second[i]];
-                size_t sizeChange = tempFollow.size();
-                bool hasEpsilon = false;
-
-                if (!restRight.empty()){
-                    for (size_t idx = 0; idx < restRight.size(); idx++){
-                        if (isNonterminal(restRight[idx])){
-                            for (auto &innerElement : firstSet[restRight[idx]]){
-                                if (ifNotFind(tempFollow, innerElement) && innerElement != "#"){
-                                    tempFollow.push_back(innerElement);
-                                } else if (innerElement == "#"){
-                                    hasEpsilon = true;
-                                }
-                            }
-
-                            if (hasEpsilon){
-                                if (idx + 1 != restRight.size()){
-                                    continue;
-                                }
-
-                                vector<string> tempFollow2 = followSet[left];
-                                for (auto &temp : tempFollow2){
-                                    if (ifNotFind(tempFollow, temp)){
-                                        tempFollow.push_back(temp);
-                                    }
-                                }
-
-                            } else{
+            for (size_t idx = 0; idx < rights.size(); idx++){
+                hasEpsilon = true;
+                if (isNonterminal(rights[idx])){
+                    if(idx != rights.size() - 1){
+                        for (size_t idx2 = idx + 1; idx2 < rights.size(); idx2++){
+                            if (ifNotFind(firstSet[rights[idx2]], "#")){
+                                hasEpsilon = false;
                                 break;
                             }
+                        }
 
-                            //if is terminal
-                            //if (isNonterminal(restRight[idx]))
-                        } else{
-                            if (ifNotFind(tempFollow, restRight[idx])){
-                                tempFollow.push_back(restRight[idx]);
+                        if (hasEpsilon){
+                            for (auto &element : followSet[left]){
+                                if (ifNotFind(followSet[rights[idx]], element)){
+                                    followSet[rights[idx]].push_back(element);
+                                    isChanged = true;
+                                }
                             }
-                            break;
+                        }
+                    } else{
+                        for (auto &element : followSet[left]){
+                            if (ifNotFind(followSet[rights[idx]], element)){
+                                followSet[rights[idx]].push_back(element);
+                                isChanged = true;
+                            }
                         }
                     }
-
-                    //only have one stuff.
-                    //if (!restRight.empty())
-                } else{
-                    for (auto &element : followSet[left]){
-                        if (ifNotFind(tempFollow, element)){
-                            tempFollow.push_back(element);
-                        }
-                    }
-                }
-
-                if (sizeChange != tempFollow.size()){
-                    for (auto &element : tempFollow){
-                        if (ifNotFind(followSet[item.second[i]], element) && element != "#"){
-                            followSet[item.second[i]].push_back(element);
-                        }
-                    }
-
-                    isChanged = true;
                 }
             }
         }
@@ -506,6 +498,13 @@ void getFollow() {
 }
 
 void printFollow(){
+    getFirst();
+    for (auto &item : terminals){
+        firstSet[item].push_back(item);
+    }
+    firstSet["#"].push_back("#");
+
+    getFollow();
     for (auto &item : addOrder){
         cout << "FOLLOW(" << item << ") = { ";
         vector<string> set = followSet[item];
@@ -546,7 +545,7 @@ vector<string> rhsFirst(const vector<string>& ruleBody) {
                 break;
             }
         }
-        
+
         if(hasEpsilon){
             result.emplace_back("#");
         }
@@ -578,6 +577,7 @@ void checkPP()
         for(auto &item : terminals){
             firstSet[item].push_back(item);
         }
+        firstSet["#"].push_back("#");
 
         for(int idx = 0; idx < ruleList.size(); idx++){
             for(int idx2 = idx + 1; idx2 < ruleList.size(); idx2++){
@@ -593,16 +593,25 @@ void checkPP()
             }
         }
 
-outLoop:
+        outLoop:
 
         bool ifIntersec2 = false;
         if(ifIntersec){
             output = "NO";
         }else{
+            /*getFirst();
+            for (auto &item : terminals){
+                firstSet[item].push_back(item);
+            }
+            firstSet["#"].push_back("#");
+
+            */
             getFollow();
             for(auto &item : nonTerminals){
                 if(!(ifNotFind(firstSet[item], "#"))){
                     ifIntersec2 = checkIfIntersec(firstSet[item], followSet[item]);
+                }
+                if (ifIntersec2){
                     break;
                 }
             }
@@ -649,8 +658,6 @@ int main (int argc, char* argv[])
             break;
 
         case 4:
-            getFirst();
-            getFollow();
             printFollow();
             break;
 
@@ -665,4 +672,3 @@ int main (int argc, char* argv[])
 
     return 0;
 }
-
