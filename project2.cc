@@ -206,122 +206,125 @@ void printForTask1()
     cout << output << endl;
 }
 
+vector<pair<string, vector<string>>> ruleGen;
+vector<pair<string, vector<string>>> usefulVec;
 
-bool isGenerating = false;
+void getUseless(){
+    bool isChanged = true;
+    bool reachableSymbols[symbolSize];
 
-void isGenerate(bool *useless){
-    bool isChanged;
-    do {
+    for (auto &item : symbols){
+        generateSymbols[item.second] = isTerminal(item.first);
+    }
+    generateSymbols[0] = true;
+
+    while (isChanged){
         isChanged = false;
-        for (auto &item : ruleList) {
-            string left = item.first;
-            vector<string> rightRules = item.second;
-            for (auto &rightRule : rightRules) {
-                int index = symbols[rightRule];
-                isGenerating = useless[index];
-                if (!isGenerating) {
+        for (auto &item : ruleList){
+            bool isGenerating = true;
+            for (auto &rightRule : item.second){
+                int tempIdx = symbols[rightRule];
+                if (!generateSymbols[tempIdx]){
+                    isGenerating = false;
                     break;
                 }
             }
 
-            if (item.second.empty() || isGenerating) {
-                int index = symbols[left];
-                if(!useless[index]){
-                    useless[index] = true;
+            //empty means epsilon.
+            if (item.second.empty() || isGenerating){
+                int tempIdx = symbols[item.first];
+                if (!generateSymbols[tempIdx]){
+                    generateSymbols[tempIdx] = true;
                     isChanged = true;
                 }
             }
         }
+    }
 
-    }while(isChanged);
-}
+    bool isGenerating = false;
+    for (auto &item : ruleList){
+        vector<string> rightRules = item.second;
+        if (!rightRules.empty()){
+            for (auto &rightRule : rightRules){
+                int tempIdx = symbols[rightRule];
+                if (!rightRules.empty()){
+                    isGenerating = generateSymbols[tempIdx];
+                    if (!isGenerating){
+                        hasUseless = false;
+                        break;
+                    }
+                }
+            }
+        } else{
+            isGenerating = true;
+        }
 
-bool rea = true;
-void isReachable(bool *reachable, vector<pair<string, vector<string>>> ruleGenRules) {
-    bool isChanged;
-    do{
-        isChanged = false;
-        for (auto &item : ruleGenRules) {
-            string left = item.first;
-            vector<string> rightRules = item.second;
+        if (isGenerating){
+            ruleGen.emplace_back(item.first, item.second);
+        }
+    }
 
-            int index = symbols[left];
-            if (reachable[index]) {
-                for (auto &rightRule : rightRules) {
-                    int tempIdx = symbols[rightRule];
-                    if(!reachable[tempIdx]){
-                        reachable[tempIdx] = true;
-                        isChanged = true;
+    if (!ruleGen.empty() && (ruleGen[0].first == ruleList[0].first)){
+        int tempIdx = symbols[ruleGen[0].first];
+        //symbols => map<string, int>
+        //string => content.
+        //int => added order.
+        for (auto &item : symbols){
+            bool checker = (item.second == tempIdx);
+            reachableSymbols[item.second] = checker;
+        }
+
+        isChanged = true;
+
+        while (isChanged){
+            isChanged = false;
+            for (auto &item : ruleGen){
+                int tempIdx2 = symbols[item.first];
+                if (reachableSymbols[tempIdx2]){
+                    for (auto &rightRule : item.second){
+                        int tempIdx3 = symbols[rightRule];
+                        if (!reachableSymbols[tempIdx3]){
+                            reachableSymbols[tempIdx3] = true;
+                            isChanged = true;
+                        }
                     }
                 }
             }
         }
 
-    }while(isChanged);
-}
-
-vector<pair<string, vector<string>>> ruleGen;
-vector<pair<string, vector<string>>> useful;
-void getUseless(){
-
-    bool reachableSymbols[symbolSize];
-    isGenerate(generateSymbols);
-    for(auto &item : ruleList){
-        string left = item.first;
-        vector<string> rightRules = item.second;
-        if (!rightRules.empty()){
-            for(auto &rightRule : rightRules){
-                int idx = symbols[rightRule];
-                isGenerating = generateSymbols[idx];
-                if (!isGenerating)
-                    break;
-            }
-
-        } else{
-            isGenerating = true;
-        }
-
-        if(isGenerating){
-            ruleGen.emplace_back(item.first, item.second);
-        } else{
-            hasUseless = false;
-        }
-    }
-
-    if(!ruleGen.empty()){
-        int index = symbols[ruleList[0].first];
-        for(int i = 0; i < symbolSize; i++){
-            bool reachable = (i == index);
-            reachableSymbols[i] = reachable;
-        }
-
-        //get reachable array
-        isReachable(reachableSymbols, ruleGen);
-        for(auto &i : ruleGen){
-            for(auto &j : i.second){
-                int idx = symbols[i.first];
-                rea = reachableSymbols[idx];
-                if(!rea){
-                    break;
+        bool rea = false;
+        for (auto &item : ruleGen){
+            int tempIdx3 = symbols[item.first];
+            if (!item.second.empty()){
+                for (auto &rightRule : item.second){
+                    rea = reachableSymbols[tempIdx3];
+                    if (!rea){
+                        hasUseless = false;
+                        break;
+                    }
+                }
+            } else{
+                if (reachableSymbols[tempIdx3]){
+                    rea = true;
                 }
             }
 
-            if(rea){
-                useful.emplace_back(i.first, i.second);
-            } else{
-                hasUseless = false;
+            if (rea){
+                usefulVec.emplace_back(item.first, item.second);
             }
         }
     }
+
+
 }
 
 // Task 2
 void RemoveUselessSymbols() {
     //update useful
     getUseless();
-    if(!useful.empty()){
+    if(!usefulVec.empty()){
         string output;
-        for(auto &item : useful){
+        for(auto &item : usefulVec){
             output += item.first + " -> ";
             if(!item.second.empty()){
                 for(auto &rightRule : item.second){
