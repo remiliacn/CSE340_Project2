@@ -8,20 +8,28 @@
 #include <algorithm>
 #include <vector>
 #include <map>
+#include <any>
 #include "string"
 #include "lexer.h"
 
 using namespace std;
 vector<pair<string, vector<string>>> ruleList;
+//For making sure that the first and follow set is printed in the order appeared.
 vector<string> addOrder;
 vector<string> terminalOrder;
+
+//first and follow set map.
 map<string, vector<string>> firstSet;
 map<string, vector<string>> followSet;
+
 bool hasUseless = true;
+//vectors for helping to track the grammar rule.
 vector<string> rhs;
 vector<string> lhs;
 vector<string> terminals;
 vector<string> nonTerminals;
+
+//symbol map with every symbol and its corresponding added order.
 map <string, int> symbols;
 bool generateSymbols[100];
 int symbolSize = 0;
@@ -37,18 +45,33 @@ void parse_id_list();
 //Utility
 Token peek();
 bool ifNotFind(vector<string> vec, const string& value);
+bool ifFind(vector<string> vec, const string& value);
 void syntax_error();
 bool isNonterminal(string var);
 bool isTerminal(string var);
 
+/**
+ *
+ * @param var -> string for checking if it is a nonterminal character.
+ * @return {bool} -> if it is a non-terminal, return true, otherwise false.
+ */
 bool isNonterminal(string var){
-    return !ifNotFind(nonTerminals, var);
+    return ifFind(nonTerminals, var);
 }
 
+/**
+ *
+ * @param var -> string for checking if it is a terminal character.
+ * @return {bool} -> if it is a terminal, return true, otherwise false.
+ */
 bool isTerminal(string var){
-    return !ifNotFind(terminals, var);
+    return ifFind(terminals, var);
 }
 
+/**
+ * Helper method to peek.
+ * @return {Token} -> The token peeked.
+ */
 Token peek(){
     t = lexer.GetToken();
     lexer.UngetToken(t);
@@ -57,6 +80,10 @@ Token peek(){
 
 bool ifNotFind(vector<string> vec, const string& value){
     return (find(vec.begin(), vec.end(), value) == vec.end());
+}
+
+bool ifFind(vector<string> vec, const string& value){
+    return (find(vec.begin(), vec.end(), value) != vec.end());
 }
 
 void syntax_error(){
@@ -174,6 +201,8 @@ void ReadGrammar()
         }
     }
 
+
+    //initialize symbol map for convenient purpose.
     symbols["#"] = 0;
     generateSymbols[0] = true;
     symbols["$"] = 1;
@@ -190,15 +219,17 @@ void ReadGrammar()
     }
 }
 
-// Task 1
+
 void printForTask1()
 {
     string output;
+    //Print all terminals.
     for(auto &i : terminals){
         output += i + " ";
     }
     output += " ";
 
+    //Print all nonTerminals
     for(auto &i : nonTerminals) {
         output += i + " ";
     }
@@ -415,7 +446,7 @@ void printFirst(){
         vector<string> set = firstSet[item];
         size_t i = 0;
         for (const auto & j : terminalOrder){
-            if (!ifNotFind(set, j)){
+            if (ifFind(set, j)){
                 cout << j;
                 if (i + 1 != set.size()){
                     cout << ", ";
@@ -442,7 +473,7 @@ void getFollow() {
             if (isNonterminal(rights[idx])){
                 for (size_t idx2 = idx + 1; idx2 < rights.size(); idx2++){
                     hasEpsilon = false;
-                    if (!ifNotFind(firstSet[rights[idx2]], "#")){
+                    if (ifFind(firstSet[rights[idx2]], "#")){
                         hasEpsilon = true;
                     }
 
@@ -467,17 +498,17 @@ void getFollow() {
             vector<string> rights = item.second;
 
             for (size_t idx = 0; idx < rights.size(); idx++){
-                hasEpsilon = true;
+                hasEpsilon = false;
                 if (isNonterminal(rights[idx])){
                     if(idx != rights.size() - 1){
                         for (size_t idx2 = idx + 1; idx2 < rights.size(); idx2++){
                             if (ifNotFind(firstSet[rights[idx2]], "#")){
-                                hasEpsilon = false;
+                                hasEpsilon = true;
                                 break;
                             }
                         }
 
-                        if (hasEpsilon){
+                        if (!hasEpsilon){
                             for (auto &element : followSet[left]){
                                 if (ifNotFind(followSet[rights[idx]], element)){
                                     followSet[rights[idx]].push_back(element);
@@ -485,6 +516,7 @@ void getFollow() {
                                 }
                             }
                         }
+
                     } else{
                         for (auto &element : followSet[left]){
                             if (ifNotFind(followSet[rights[idx]], element)){
@@ -514,7 +546,7 @@ void printFollow(){
         size_t i = 0;
 
         for (const auto & j : terminalOrder){
-            if (!ifNotFind(set, j)){
+            if (ifFind(set, j)){
                 cout << j;
                 if (i + 1 != set.size()){
                     cout << ", ";
@@ -531,21 +563,25 @@ void printFollow(){
 
 vector<string> rhsFirst(const vector<string>& ruleBody) {
     vector<string> result;
-    bool hasEpsilon = true;
+    bool hasEpsilon;
     if (ruleBody.empty()) {
         result.emplace_back("#");
     }else{
-        for(auto &item : ruleBody){
-            hasEpsilon = !ifNotFind(firstSet[item], "#");
+        if (ruleBody.empty()){
+            hasEpsilon = true;
+        } else{
+            for(auto &item : ruleBody){
+                hasEpsilon = ifFind(firstSet[item], "#");
 
-            for(auto &firstSetItem : firstSet[item]){
-                if(ifNotFind(result, firstSetItem) && firstSetItem != "#"){
-                    result.push_back(firstSetItem);
+                for(auto &firstSetItem : firstSet[item]){
+                    if(ifNotFind(result, firstSetItem) && firstSetItem != "#"){
+                        result.push_back(firstSetItem);
+                    }
                 }
-            }
 
-            if(!hasEpsilon){
-                break;
+                if(!hasEpsilon){
+                    break;
+                }
             }
         }
 
@@ -558,7 +594,7 @@ vector<string> rhsFirst(const vector<string>& ruleBody) {
 
 bool checkIfIntersec(const vector<string>& vec1, const vector<string>& vec2){
     for(auto &item : vec1){
-        if(!ifNotFind(vec2, item)){
+        if(ifFind(vec2, item)){
             return true;
         }
     }
@@ -575,15 +611,15 @@ void checkPP()
 
     }else{
         getFirst();
-        bool ifIntersec = true;
+        bool ifIntersec = false;
 
         for(auto &item : terminals){
             firstSet[item].push_back(item);
         }
         firstSet["#"].push_back("#");
 
-        for(int idx = 0; idx < ruleList.size(); idx++){
-            for(int idx2 = idx + 1; idx2 < ruleList.size(); idx2++){
+       for(size_t idx = 0; idx < ruleList.size(); idx++){
+            for(size_t idx2 = idx + 1; idx2 < ruleList.size(); idx2++){
                 if(ruleList[idx].first == ruleList[idx2].first){
                     vector<string> first1 = rhsFirst(ruleList[idx].second);
                     vector<string> first2 = rhsFirst(ruleList[idx2].second);
